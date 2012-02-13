@@ -1,20 +1,41 @@
 /* 
- * File:   Executor.h
+ * File:   Executer.h
  * Author: Jag
  *
- * Created on February 11, 2012, 11:38 AM
+ * Created on February 12, 2012, 8:55 PM
  */
 
-#ifndef EXECUTOR_H
-#define	EXECUTOR_H
+#ifndef EXECUTER_H
+#define	EXECUTER_H
 
-class Executor {
+#include "InstructionItem.h"
+#include <iostream>
+#include <fstream>
+#include <stack>
+#include <map>
+
+class Executer {
 public:
-    Executor();
-    virtual ~Executor();
+    Executer();
+    virtual ~Executer();
+    
+    void setInstructionList(InstructionItem* listHead);
+    void setLabelMap(map<string, InstructionItem*> labelMap);
+    
+    InstructionItem* getCurrentInstruction();
+    map<string, InstructionItem*> getLabelMap();
+    
+    void execute(ofstream& os, bool fileIsOpen = true);
     
 private:
+    InstructionItem* instrList;
+    map<string, InstructionItem*> labelMap;
+    stack<string> memoryStack;
+    
+    pair<string, string> popTwo();
+    string convertInt(int intToConvert);
 
 };
 
-#endif	/* EXECUTOR_H */
+#endif	/* EXECUTER_H */
+
