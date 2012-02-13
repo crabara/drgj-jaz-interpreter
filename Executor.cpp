@@ -1,10 +1,3 @@
-/* 
- * File:   Executer.cpp
- * Author: Jag
- * 
- * Created on February 12, 2012, 8:55 PM
- */
-
 #include "Executer.h"
 
 Executer::Executer() {
@@ -49,7 +42,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     
     else if (command == "rvalue") {
         if (arg.length() > 0) {
-            memoryStack.push(arg);
+            if (variableList.count(arg)) {
+                memoryStack.push(variableList[arg]);
+            } else {
+                cout << "ERR: Line - " << lineNumber
+                     << " - 'rvalue " << arg << "' does not exist.\n"
+                     << "JAZ: RVALUE operation cannot be performed.\n"
+                     << "JAZ: Halting execution.\n\n";
+                break;
+            }
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - 'rvalue' requires an argument.\n"
@@ -78,13 +79,22 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
                  << "JAZ: POP operation cannot be performed.\n"
-                 << "JAZ: Halting execution.";
+                 << "JAZ: Halting execution.\n\n";
             break;
         }
     }
     
     else if (command == ":=") {
-        
+        pair<string, string> stackTop = popTwo();
+        if (stackTop.first.length() > 0) {
+            variableList[stackTop.first] = stackTop.second;
+        } else {
+            cout << "ERR: Line " << lineNumber
+                 << " - Stack is empty.\n"
+                 << "JAZ: ASSIGNMENT operation cannot be performed.\n"
+                 << "JAZ: Halting execution.\n\n";
+            break;
+        }
     }
     
     else if (command == "copy") {
@@ -94,7 +104,7 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
-                 << "COPY operation cannot be performed.\n"
+                 << "JAZ: COPY operation cannot be performed.\n"
                  << "JAZ: Halting execution.\n\n";
             break;
         }
@@ -105,7 +115,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     
     else if (command == "goto") {
         if (arg.length() > 0) {
-            memoryStack.push(arg);
+            if (labelMap.count(arg)) {
+                instrList->setNext(labelMap[arg]);
+            } else {
+                cout << "ERR: Line " << lineNumber
+                     << " - 'label " << arg << "' does not exist.\n"
+                     << "JAZ: GOTO operation cannot be performed.\n"
+                     << "JAZ: Halting execution.\n\n";
+                break;
+            }
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - 'goto' requires an argument.\n"
@@ -116,8 +134,29 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     }
     
     else if (command == "gofalse") {
+        int decider = 0;
         if (arg.length() > 0) {
-            memoryStack.push(arg);
+            if (!memoryStack.empty()) {
+                decider = atoi(memoryStack.top().c_str());
+                memoryStack.pop();
+                if (decider == 0) {
+                    if (labelMap.count(arg)) {
+                        instrList->setNext(labelMap[arg]);
+                    } else {
+                        cout << "ERR: Line " << lineNumber
+                             << " - 'label " << arg << "' does not exist.\n"
+                             << "JAZ: GOFALSE operation cannot be performed.\n"
+                             << "JAZ: Halting execution.\n\n";
+                        break;
+                    }
+                }
+            } else {
+                cout << "ERR: Line " << lineNumber
+                     << " - Stack is empty.\n"
+                     << "JAZ: GOFALSE operation cannot be performed.\n"
+                     << "JAZ: Halting execution.\n\n";
+                break;
+            }
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - 'gofalse' requires an argument.\n"
@@ -128,8 +167,29 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     }
     
     else if (command == "gotrue") {
+        int decider = 0;
         if (arg.length() > 0) {
-            memoryStack.push(arg);
+            if (!memoryStack.empty()) {
+                decider = atoi(memoryStack.top().c_str());
+                memoryStack.pop();
+                if (decider != 0) {
+                    if (labelMap.count(arg)) {
+                        instrList->setNext(labelMap[arg]);
+                    } else {
+                        cout << "ERR: Line " << lineNumber
+                             << " - 'label " << arg << "' does not exist.\n"
+                             << "JAZ: GOTRUE operation cannot be performed.\n"
+                             << "JAZ: Halting execution.\n\n";
+                             break;
+                    }
+                }
+            } else {
+                cout << "ERR: Line " << lineNumber
+                     << " - Stack is empty.\n"
+                     << "JAZ: GOTRUE operation cannot be performed.\n"
+                     << "JAZ: Halting execution.\n\n";
+                break;
+            }
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - 'gotrue' requires an argument.\n"
@@ -402,12 +462,24 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     }
     
     else if (command == "return") {
-        
+        if (!returnToCaller.empty()) {
+            instrList->setNext(returnToCaller.top());
+            returnToCaller.pop();
+        }
     }
     
     else if (command == "call") {
         if (arg.length() > 0) {
-            memoryStack.push(arg);
+            returnToCaller.push(instrList->getNext());
+            if (labelMap.count(arg)) {
+                instrList->setNext(labelMap[arg]);
+            } else {
+                cout << "ERR: Line - " << lineNumber
+                     << " - 'label " << arg << "' does not exist.\n"
+                     << "JAZ: CALL operation cannot be performed.\n"
+                     << "JAZ: Halting execution.\n\n";
+                break;
+            }
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - 'call' requires an argument.\n"
@@ -420,9 +492,18 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     else {
         cout << "ERR: Line " << lineNumber
              << " - '" << command << "' is not a valid command.\n"
-             << "JAZ: This line will be ignored.\n\n";
+             << "JAZ: Halting execution.\n\n";
+        break;
     }
-    instrList = instrList->getNext();
+    
+    if (instrList->getNext() != NULL) {
+        instrList = instrList->getNext();
+    } else {
+        cout << "ERR: Line " << lineNumber
+             << " - Moved past end of file with no HALT command.\n"
+             << "JAZ: Halting execution.\n\n";
+        break;
+    }
   }
 }
 
@@ -440,7 +521,7 @@ pair<string, string> Executer::popTwo() {
 }
 
 string Executer::convertInt(int intToConvert) {
-    char* temp;
+    char temp[100];
     sprintf(temp, "%d", intToConvert);
     string result(temp);
     return result;
