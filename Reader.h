@@ -9,10 +9,9 @@
 #define	READER_H
 
 #include "InstructionItem.h"
+#include <iostream>
 #include <fstream>
 #include <map>
-
-using namespace std;
 
 //Reader handles all the parsing functions of the program.  It converts the base
 //.jaz file into a linked list of executions, maps the labels to the appropriate
@@ -22,13 +21,14 @@ public:
     Reader();
     virtual ~Reader();
     
-    static pair<string, string> parseLine(string line);
-    static InstructionItem* buildList(ifstream& is);
-    static map<string, InstructionItem*> mapLabels(InstructionItem* listItem);
+    InstructionItem* buildList(ifstream& is);
+    map<string, InstructionItem*> mapLabels(InstructionItem* listItem);
     
 private:
+    int lineTracker;
+    
+    pair<string, string> parseLine(string line);
 
 };
 
 #endif	/* READER_H */
-
