@@ -19,18 +19,21 @@ class InstructionItem {
     
 public:
     InstructionItem();
-    InstructionItem(string tempCommand, string tempArg);
+    InstructionItem(string tempCommand, string tempArg, int tempLineNumber);
     virtual ~InstructionItem();
     
+    void setLineNumber(int tempLineNumber);
     void setCommand(string tempCommand);
     void setArg(string tempArg);
     void setNext(InstructionItem* tempNextPtr);
     
+    int getLineNumber();
     string getCommand();
     string getArg();
     InstructionItem* getNext();
     
 private:
+    int lineNumber;
     string command;
     string arg;
     InstructionItem* next;
