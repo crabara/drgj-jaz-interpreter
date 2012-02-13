@@ -1,10 +1,3 @@
-/* 
- * File:   Executer.h
- * Author: Jag
- *
- * Created on February 12, 2012, 8:55 PM
- */
-
 #ifndef EXECUTER_H
 #define	EXECUTER_H
 
@@ -31,6 +24,8 @@ private:
     InstructionItem* instrList;
     map<string, InstructionItem*> labelMap;
     stack<string> memoryStack;
+    map<string, string> variableList;
+    stack<InstructionItem*> returnToCaller;
     
     pair<string, string> popTwo();
     string convertInt(int intToConvert);
@@ -38,4 +33,3 @@ private:
 };
 
 #endif	/* EXECUTER_H */
-
