@@ -8,18 +8,23 @@
 #include "InstructionItem.h"
 
 InstructionItem::InstructionItem() {
-    this->command = "";
-    this->arg = "";
     this->next = NULL;
 }
 
-InstructionItem::InstructionItem(string tempCommand, string tempArg) {
+InstructionItem::InstructionItem(string tempCommand,
+                                 string tempArg,
+                                 int tempLineNumber) {
+    this->lineNumber = tempLineNumber;
     this->command = tempCommand;
     this->arg = tempArg;
-    this->next = NULL;
+    InstructionItem();
 }
 
 InstructionItem::~InstructionItem() { }
+
+void InstructionItem::setLineNumber(int tempLineNumber) {
+    this->lineNumber = tempLineNumber;
+}
 
 void InstructionItem::setCommand(string tempCommand) {
     this->command = tempCommand;
@@ -31,6 +36,10 @@ void InstructionItem::setArg(string tempArg) {
 
 void InstructionItem::setNext(InstructionItem* tempNextPtr) {
     this->next = tempNextPtr;
+}
+
+int InstructionItem::getLineNumber() {
+    return lineNumber;
 }
 
 string InstructionItem::getCommand() {
