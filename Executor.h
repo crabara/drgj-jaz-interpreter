@@ -2,6 +2,7 @@
 #define	EXECUTER_H
 
 #include "InstructionItem.h"
+#include "SymbolTable.h"
 #include <iostream>
 #include <fstream>
 #include <stack>
@@ -24,10 +25,13 @@ private:
     InstructionItem* instrList;
     map<string, InstructionItem*> labelMap;
     stack<string> memoryStack;
-    map<string, string> variableList;
+    SymbolTable variableList;
+    stack<SymbolTable*> symbolTables;
+    SymbolTable* wideScope;
+    SymbolTable* narrowScope;
     stack<InstructionItem*> returnToCaller;
     
-    pair<string, string> popTwo();
+    string popTop();
     string convertInt(int intToConvert);
 
 };
