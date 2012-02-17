@@ -1,10 +1,3 @@
-/* 
- * File:   InstructionItem.h
- * Author: Jag
- *
- * Created on February 11, 2012, 6:20 AM
- */
-
 #ifndef INSTRUCTIONITEM_H
 #define	INSTRUCTIONITEM_H
 
@@ -12,9 +5,6 @@
 
 using namespace std;
 
-//A pretty basic linked list architecture.  I chose a LL because it's the
-//easiest way to move back and forth in threads of execution, and I can jump in
-//anywhere in the list.  Scope will be easier to maintain once implemented.
 class InstructionItem {
     
 public:
@@ -23,17 +13,20 @@ public:
     virtual ~InstructionItem();
     
     void setLineNumber(int tempLineNumber);
+    void incrementAccess();
     void setCommand(string tempCommand);
     void setArg(string tempArg);
     void setNext(InstructionItem* tempNextPtr);
     
     int getLineNumber();
+    int getAccess();
     string getCommand();
     string getArg();
     InstructionItem* getNext();
     
 private:
     int lineNumber;
+    int accessAttempt;
     string command;
     string arg;
     InstructionItem* next;
