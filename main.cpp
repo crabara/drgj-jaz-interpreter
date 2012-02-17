@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
              << endl << endl;
     } else {
         cout << "ERR: Output file could not be opened: " << outFileName << endl;
-        cout << "JAZ: Output will only be displayed to the command line.\n\n";
+        cout << "JAZ: Output will only be displayed in the shell window.\n\n";
         runInterpreter.execute(os, false);
     }
     cout << "Press ENTER to exit.";
