@@ -1,6 +1,9 @@
 #include "Executer.h"
+#include "SymbolTable.h"
 
 Executer::Executer() {
+    this->wideScope = &this->variableList;
+    this->narrowScope = &this->variableList;
 }
 
 Executer::~Executer() {
@@ -15,11 +18,11 @@ void Executer::setLabelMap(map<string,InstructionItem*> labelMap) {
 }
 
 InstructionItem* Executer::getCurrentInstruction() {
-    return instrList;
+    return this->instrList;
 }
 
 map<string, InstructionItem*> Executer::getLabelMap() {
-    return labelMap;
+    return this->labelMap;
 }
 
 void Executer::execute(ofstream& os, bool fileIsOpen) {
@@ -27,6 +30,9 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     int lineNumber = instrList->getLineNumber();
     string command = instrList->getCommand();
     string arg = instrList->getArg();
+    instrList->incrementAccess();
+    InstructionItem* nextInstr = NULL;
+    bool conditionalJump = false;
     
     if (command == "push") {
         if (arg.length() > 0) {
@@ -42,14 +48,11 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     
     else if (command == "rvalue") {
         if (arg.length() > 0) {
-            if (variableList.count(arg)) {
-                memoryStack.push(variableList[arg]);
+            string first = wideScope->getVariable(arg);
+            if (first.length() > 0) {
+                memoryStack.push(first);
             } else {
-                cout << "ERR: Line - " << lineNumber
-                     << " - 'rvalue " << arg << "' does not exist.\n"
-                     << "JAZ: RVALUE operation cannot be performed.\n"
-                     << "JAZ: Halting execution.\n\n";
-                break;
+                memoryStack.push("0");
             }
         } else {
             cout << "ERR: Line " << lineNumber
@@ -73,9 +76,8 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     }
     
     else if (command == "pop") {
-        if (!memoryStack.empty()) {
-            memoryStack.pop();
-        } else {
+        string first = popTop();
+        if (first.length() == 0) {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
                  << "JAZ: POP operation cannot be performed.\n"
@@ -85,9 +87,10 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     }
     
     else if (command == ":=") {
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            variableList[stackTop.first] = stackTop.second;
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            narrowScope->setVariable(first, second);
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -98,9 +101,8 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     }
     
     else if (command == "copy") {
-        string temp("0");
         if (!memoryStack.empty()) {
-            temp = memoryStack.top();
+            memoryStack.push(memoryStack.top());
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -108,7 +110,6 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(temp);
     }
     
     else if (command == "label") { }
@@ -116,7 +117,8 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     else if (command == "goto") {
         if (arg.length() > 0) {
             if (labelMap.count(arg)) {
-                instrList->setNext(labelMap[arg]);
+                nextInstr = labelMap[arg];
+                conditionalJump = true;
             } else {
                 cout << "ERR: Line " << lineNumber
                      << " - 'label " << arg << "' does not exist.\n"
@@ -141,7 +143,8 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                 memoryStack.pop();
                 if (decider == 0) {
                     if (labelMap.count(arg)) {
-                        instrList->setNext(labelMap[arg]);
+                        nextInstr = labelMap[arg];
+                        conditionalJump = true;
                     } else {
                         cout << "ERR: Line " << lineNumber
                              << " - 'label " << arg << "' does not exist.\n"
@@ -174,7 +177,8 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                 memoryStack.pop();
                 if (decider != 0) {
                     if (labelMap.count(arg)) {
-                        instrList->setNext(labelMap[arg]);
+                        nextInstr = labelMap[arg];
+                        conditionalJump = true;
                     } else {
                         cout << "ERR: Line " << lineNumber
                              << " - 'label " << arg << "' does not exist.\n"
@@ -206,10 +210,11 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     
     else if (command == "+") {
         int sum = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            sum = atoi(stackTop.first.c_str())
-                    + atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            sum = atoi(first.c_str()) + atoi(second.c_str());
+            memoryStack.push(convertInt(sum));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -217,15 +222,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(sum));
     }
     
     else if (command == "-") {
         int diff = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            diff = atoi(stackTop.first.c_str())
-                    - atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            diff = atoi(first.c_str()) - atoi(second.c_str());
+            memoryStack.push(convertInt(diff));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -233,15 +238,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(diff));
     }
     
     else if (command == "*") {
         int prod = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            prod = atoi(stackTop.first.c_str())
-                    * atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            prod = atoi(first.c_str()) * atoi(second.c_str());
+            memoryStack.push(convertInt(prod));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -249,15 +254,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(prod));
     }
     
     else if (command == "/") {
         int quot = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            quot = atoi(stackTop.first.c_str())
-                    / atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            quot = atoi(first.c_str()) / atoi(second.c_str());
+            memoryStack.push(convertInt(quot));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -265,15 +270,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(quot));
     }
     
     else if (command == "div") {
         int rem = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            rem = atoi(stackTop.first.c_str())
-                    % atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            rem = atoi(first.c_str()) % atoi(second.c_str());
+            memoryStack.push(convertInt(rem));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -281,15 +286,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(rem));
     }
     
     else if (command == "&") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       && atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) && atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -297,15 +302,14 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == "!") {
-        int operand = 0,
-            result = 0;
-        if (!memoryStack.empty()) {
-            operand = atoi(memoryStack.top().c_str());
-            memoryStack.pop();
+        int result = 0;
+        string first = popTop();
+        if (first.length() > 0) {
+            result = !(atoi(first.c_str()));
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -313,17 +317,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        
-        result = !operand;
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == "|") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       || atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) || atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -331,15 +333,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == "<>") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       != atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) != atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -347,15 +349,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == "<=") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       <= atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) <= atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -363,15 +365,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == ">=") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       >= atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) >= atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -379,15 +381,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == "<") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       < atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) < atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -395,15 +397,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == ">") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       > atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) > atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -411,15 +413,15 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == "=") {
         int result = 0;
-        pair<string, string> stackTop = popTwo();
-        if (stackTop.first.length() > 0) {
-            result = atoi(stackTop.first.c_str())
-                       == atoi(stackTop.second.c_str());
+        string second = popTop();
+        string first = popTop();
+        if (first.length() > 0) {
+            result = atoi(first.c_str()) == atoi(second.c_str());
+            memoryStack.push(convertInt(result));
         } else {
             cout << "ERR: Line " << lineNumber
                  << " - Stack is empty.\n"
@@ -427,7 +429,6 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
                  << "JAZ: Halting execution.\n\n";
             break;
         }
-        memoryStack.push(convertInt(result));
     }
     
     else if (command == "print") {
@@ -454,15 +455,18 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     }
     
     else if (command == "begin") {
-        
+        narrowScope = new SymbolTable;
+        symbolTables.push(wideScope);
     }
     
     else if (command == "end") {
-        
+        wideScope = narrowScope;
+        symbolTables.pop();
     }
     
     else if (command == "return") {
         if (!returnToCaller.empty()) {
+            narrowScope = symbolTables.top();
             instrList->setNext(returnToCaller.top());
             returnToCaller.pop();
         }
@@ -470,9 +474,11 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
     
     else if (command == "call") {
         if (arg.length() > 0) {
+            wideScope = narrowScope;
             returnToCaller.push(instrList->getNext());
             if (labelMap.count(arg)) {
-                instrList->setNext(labelMap[arg]);
+                nextInstr = labelMap[arg];
+                conditionalJump = true;
             } else {
                 cout << "ERR: Line - " << lineNumber
                      << " - 'label " << arg << "' does not exist.\n"
@@ -496,28 +502,28 @@ void Executer::execute(ofstream& os, bool fileIsOpen) {
         break;
     }
     
-    if (instrList->getNext() != NULL) {
-        instrList = instrList->getNext();
+    if (!conditionalJump) {
+        if (instrList->getNext() != NULL) {
+            instrList = instrList->getNext();
+        } else {
+            cout << "ERR: Line " << lineNumber
+                 << " - Moved past end of file with no HALT command.\n"
+                 << "JAZ: Halting execution.\n\n";
+            break;
+        }
     } else {
-        cout << "ERR: Line " << lineNumber
-             << " - Moved past end of file with no HALT command.\n"
-             << "JAZ: Halting execution.\n\n";
-        break;
+        instrList = nextInstr;
     }
   }
 }
 
-pair<string, string> Executer::popTwo() {
-    pair<string, string> outPair = make_pair("", "");
+string Executer::popTop() {
+    string top("");
     if (!memoryStack.empty()) {
-        outPair.second = memoryStack.top();
+        top = memoryStack.top();
         memoryStack.pop();
     }
-    if (!memoryStack.empty()) {
-        outPair.first = memoryStack.top();
-        memoryStack.pop();
-    }
-    return outPair;
+    return top;
 }
 
 string Executer::convertInt(int intToConvert) {
