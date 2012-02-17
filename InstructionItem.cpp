@@ -1,13 +1,7 @@
-/* 
- * File:   InstructionItem.cpp
- * Author: Jag
- * 
- * Created on February 11, 2012, 6:20 AM
- */
-
 #include "InstructionItem.h"
 
 InstructionItem::InstructionItem() {
+    this->accessAttempt = 0;
     this->next = NULL;
 }
 
@@ -26,6 +20,10 @@ void InstructionItem::setLineNumber(int tempLineNumber) {
     this->lineNumber = tempLineNumber;
 }
 
+void InstructionItem::incrementAccess() {
+    this->accessAttempt++;
+}
+
 void InstructionItem::setCommand(string tempCommand) {
     this->command = tempCommand;
 }
@@ -39,17 +37,21 @@ void InstructionItem::setNext(InstructionItem* tempNextPtr) {
 }
 
 int InstructionItem::getLineNumber() {
-    return lineNumber;
+    return this->lineNumber;
+}
+
+int InstructionItem::getAccess() {
+    return this->accessAttempt;
 }
 
 string InstructionItem::getCommand() {
-    return command;
+    return this->command;
 }
 
 string InstructionItem::getArg() {
-    return arg;
+    return this->arg;
 }
 
 InstructionItem* InstructionItem::getNext() {
-    return next;
+    return this->next;
 }
