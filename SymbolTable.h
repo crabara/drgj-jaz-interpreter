@@ -6,6 +6,8 @@
 
 using namespace std;
 
+//SymbolTable is simply a wrapper for variable maps.  It provides simple
+//accessors to make working with lvalue and rvalue simpler.
 class SymbolTable {
 public:
     SymbolTable();
